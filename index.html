@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ledger — wage tracker</title>
+
+<!-- favicon -->
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0B0D0C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ledger">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B0D0C;
+    --bg-raised:#121513;
+    --bg-line:#1C201D;
+    --ink:#EDEAE3;
+    --ink-dim:#8B9088;
+    --ink-faint:#4E534E;
+    --signal:#B8FF3C;
+    --signal-dim:#6B7F3A;
+    --danger:#FF6B4A;
+    --radius:2px;
+    --mono:'IBM Plex Mono', ui-monospace, monospace;
+    --sans:'Inter', -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{-webkit-font-smoothing:antialiased;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--sans);
+    min-height:100vh;
+    padding-bottom:4rem;
+  }
+  ::selection{background:var(--signal); color:var(--bg);}
+
+  .job-c0{color:#B8FF3C;} .job-bg0{background:#B8FF3C;}
+  .job-c1{color:#5FD4FF;} .job-bg1{background:#5FD4FF;}
+  .job-c2{color:#FFB84D;} .job-bg2{background:#FFB84D;}
+  .job-c3{color:#FF7AC6;} .job-bg3{background:#FF7AC6;}
+  .job-c4{color:#C9A6FF;} .job-bg4{background:#C9A6FF;}
+
+  header{
+    position:sticky; top:0; z-index:20;
+    background:rgba(11,13,12,0.92);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--bg-line);
+    padding:0.9rem 1.25rem;
+    display:flex; align-items:center; justify-content:space-between;
+    gap:1rem;
+  }
+  .brand{
+    display:flex; align-items:baseline; gap:0.5rem;
+    font-family:var(--mono);
+  }
+  .brand .mark{ color:var(--signal); font-weight:700; }
+  .brand .name{ font-size:0.95rem; font-weight:600; letter-spacing:0.01em; }
+  .brand .tag{ color:var(--ink-faint); font-size:0.7rem; letter-spacing:0.04em; }
+  .header-actions{display:flex; gap:0.5rem;}
+  .icon-btn{
+    background:none; border:1px solid var(--bg-line); color:var(--ink-dim);
+    width:32px; height:32px; border-radius:var(--radius);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-size:0.9rem; transition:border-color .15s, color .15s;
+  }
+  .icon-btn:hover{border-color:var(--ink-faint); color:var(--ink);}
+
+  main{max-width:640px; margin:0 auto; padding:0 1.25rem;}
+
+  .add-panel{
+    margin-top:1.5rem;
+    border:1px solid var(--bg-line);
+    background:linear-gradient(180deg, var(--bg-raised), var(--bg));
+    border-radius:var(--radius);
+    padding:1.4rem 1.25rem;
+    position:relative;
+  }
+  .add-panel::before{
+    content:''; position:absolute; top:0; left:0; right:0; height:1px;
+    background:var(--bg-line);
+  }
+  .add-label{
+    font-family:var(--mono); font-size:0.72rem; letter-spacing:0.08em;
+    color:var(--ink-faint); text-transform:uppercase; margin-bottom:1rem;
+  }
+
+  .config-row{ display:flex; gap:0.6rem; margin-top:0.7rem; flex-wrap:wrap; }
+  .config-row:first-of-type{margin-top:0;}
+  .config-row .field{flex:1; min-width:110px;}
+  .field label{
+    display:block; font-family:var(--mono); font-size:0.66rem;
+    letter-spacing:0.06em; text-transform:uppercase; color:var(--ink-faint);
+    margin-bottom:0.3rem;
+  }
+  .field input, .field select{width:100%;}
+
+  select, input[type="number"], input[type="text"], input[type="date"], input[type="time"]{
+    background:var(--bg);
+    border:1px solid var(--bg-line);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:0.85rem;
+    padding:0.6rem 0.7rem;
+    border-radius:var(--radius);
+    outline:none;
+    transition:border-color .15s;
+  }
+  select:focus, input:focus{border-color:var(--signal-dim);}
+  select{cursor:pointer;}
+
+  .rate-preview{
+    margin-top:0.9rem;
+    font-family:var(--mono); font-size:0.78rem; color:var(--ink-dim);
+    padding:0.6rem 0.75rem;
+    background:var(--bg);
+    border:1px solid var(--bg-line);
+    border-radius:var(--radius);
+  }
+  .rate-preview b{color:var(--signal);}
+  .rate-preview .day-tag{
+    display:inline-block; font-size:0.66rem; letter-spacing:0.04em;
+    color:var(--ink-faint); text-transform:uppercase; margin-left:0.4rem;
+  }
+
+  .btn{
+    font-family:var(--mono); font-weight:600; font-size:0.8rem;
+    letter-spacing:0.02em; padding:0.65rem 1.1rem; border-radius:var(--radius);
+    border:1px solid transparent; cursor:pointer;
+    transition:opacity .15s, transform .1s; white-space:nowrap;
+  }
+  .btn:active{transform:scale(0.97);}
+  .btn-start{background:var(--signal); color:#0B0D0C;}
+  .btn-start:hover{opacity:0.88;}
+  .btn-ghost{ background:none; border:1px solid var(--bg-line); color:var(--ink-dim); }
+  .btn-ghost:hover{border-color:var(--ink-faint); color:var(--ink);}
+  .btn:disabled{opacity:0.35; cursor:not-allowed;}
+  .btn-full{width:100%; margin-top:1rem;}
+
+  .summary-strip{
+    display:grid; grid-template-columns:repeat(3, 1fr);
+    gap:1px; background:var(--bg-line);
+    margin-top:1.25rem; border-radius:var(--radius); overflow:hidden;
+    border:1px solid var(--bg-line);
+  }
+  .summary-cell{ background:var(--bg-raised); padding:0.85rem 0.9rem; }
+  .summary-cell .k{
+    font-family:var(--mono); font-size:0.64rem; letter-spacing:0.07em;
+    color:var(--ink-faint); text-transform:uppercase;
+  }
+  .summary-cell .v{
+    font-family:var(--mono); font-weight:700; font-size:1.15rem;
+    margin-top:0.25rem; font-variant-numeric:tabular-nums;
+  }
+  .summary-cell .v.signal{color:var(--signal);}
+  .summary-cell .sub{font-size:0.68rem; color:var(--ink-dim); margin-top:0.15rem; font-family:var(--mono);}
+
+  .job-breakdown{ display:flex; flex-wrap:wrap; gap:0.5rem; margin-top:0.7rem; }
+  .job-chip{
+    display:flex; align-items:center; gap:0.4rem;
+    font-family:var(--mono); font-size:0.72rem; padding:0.4rem 0.65rem;
+    background:var(--bg-raised); border:1px solid var(--bg-line); border-radius:var(--radius);
+  }
+  .job-chip .swatch{width:7px; height:7px; border-radius:50%; flex-shrink:0;}
+  .job-chip .amt{color:var(--ink); font-weight:600;}
+
+  .range-tabs{ display:flex; gap:0.4rem; margin-top:1.6rem; border-bottom:1px solid var(--bg-line); }
+  .range-tab{
+    background:none; border:none; color:var(--ink-faint);
+    font-family:var(--mono); font-size:0.75rem; letter-spacing:0.03em;
+    padding:0.5rem 0.2rem; cursor:pointer; border-bottom:2px solid transparent;
+    margin-bottom:-1px; text-transform:uppercase; transition:color .15s, border-color .15s;
+  }
+  .range-tab + .range-tab{margin-left:0.9rem;}
+  .range-tab.active{color:var(--ink); border-color:var(--signal);}
+  .range-tab:hover{color:var(--ink);}
+
+  .ledger{margin-top:1rem;}
+  .ledger-group{margin-bottom:1.1rem;}
+  .ledger-group-label{
+    font-family:var(--mono); font-size:0.68rem; letter-spacing:0.05em;
+    color:var(--ink-faint); text-transform:uppercase; padding:0.4rem 0;
+    display:flex; justify-content:space-between;
+  }
+  .entry{
+    display:flex; align-items:center; gap:0.8rem; padding:0.7rem 0.85rem;
+    background:var(--bg-raised); border:1px solid var(--bg-line);
+    border-left:3px solid var(--ink-faint); border-radius:var(--radius); margin-bottom:0.4rem;
+  }
+  .entry-main{flex:1; min-width:0; color:var(--ink);}
+  .entry-label{
+    font-size:0.85rem; font-weight:500; color:var(--ink);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .entry-meta{ font-family:var(--mono); font-size:0.7rem; color:var(--ink-faint); margin-top:0.15rem; }
+  .entry-amount{
+    font-family:var(--mono); font-weight:700; font-size:0.95rem;
+    color:var(--signal); flex-shrink:0; font-variant-numeric:tabular-nums;
+  }
+  .entry-del{
+    background:none; border:none; color:var(--ink-faint);
+    cursor:pointer; font-size:1rem; padding:0.2rem 0.3rem; flex-shrink:0; transition:color .15s;
+  }
+  .entry-del:hover{color:var(--danger);}
+
+  .empty-state{ text-align:center; padding:3rem 1rem; color:var(--ink-faint); }
+  .empty-state .glyph{ font-family:var(--mono); font-size:1.6rem; color:var(--ink-faint); margin-bottom:0.6rem; }
+  .empty-state p{font-size:0.85rem; max-width:280px; margin:0 auto; line-height:1.5;}
+
+  footer{
+    max-width:640px; margin:2.5rem auto 0; padding:0 1.25rem;
+    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.6rem;
+  }
+  footer .note{
+    font-family:var(--mono); font-size:0.68rem; color:var(--ink-faint);
+    line-height:1.6; max-width:320px;
+  }
+  .footer-btns{display:flex; gap:0.5rem;}
+  .footer-btns .btn{font-size:0.7rem; padding:0.45rem 0.7rem;}
+
+  .modal-backdrop{
+    position:fixed; inset:0; background:rgba(0,0,0,0.6);
+    display:none; align-items:flex-end; justify-content:center;
+    z-index:50; backdrop-filter:blur(2px);
+  }
+  .modal-backdrop.open{display:flex;}
+  .modal{
+    background:var(--bg-raised); border:1px solid var(--bg-line);
+    border-radius:var(--radius) var(--radius) 0 0;
+    width:100%; max-width:640px; padding:1.5rem 1.25rem 2rem;
+    max-height:88vh; overflow-y:auto;
+  }
+  @media (min-width:640px){
+    .modal-backdrop{align-items:center;}
+    .modal{border-radius:var(--radius); max-height:82vh;}
+  }
+  .modal h2{
+    font-family:var(--mono); font-size:1rem; margin-bottom:1rem;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .job-card{
+    border:1px solid var(--bg-line); border-radius:var(--radius);
+    padding:0.9rem; margin-bottom:0.8rem; background:var(--bg);
+  }
+  .job-card-head{ display:flex; align-items:center; gap:0.5rem; margin-bottom:0.7rem; }
+  .job-card-head .swatch{width:9px; height:9px; border-radius:50%; flex-shrink:0;}
+  .job-card-head input{flex:1; font-weight:600;}
+  .job-del{
+    background:none; border:1px solid var(--bg-line); color:var(--ink-faint);
+    cursor:pointer; padding:0.4rem 0.55rem; border-radius:var(--radius); flex-shrink:0;
+  }
+  .job-del:hover{color:var(--danger); border-color:var(--danger);}
+  .day-rate-grid{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.5rem; }
+  .day-rate-grid .field label{font-size:0.62rem;}
+  .match-field{margin-top:0.6rem;}
+  .match-field label{
+    display:block; font-family:var(--mono); font-size:0.62rem;
+    letter-spacing:0.06em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:0.3rem;
+  }
+  .match-hint{
+    font-family:var(--mono); font-size:0.64rem; color:var(--ink-faint);
+    margin-top:0.3rem; line-height:1.5;
+  }
+
+  /* ===== Import ===== */
+  .import-drop{
+    border:1px dashed var(--bg-line); border-radius:var(--radius);
+    padding:1.8rem 1rem; text-align:center; cursor:pointer;
+    transition:border-color .15s, background .15s;
+  }
+  .import-drop:hover, .import-drop.dragover{
+    border-color:var(--signal-dim); background:var(--bg);
+  }
+  .import-drop .glyph{
+    font-family:var(--mono); font-size:1.4rem; color:var(--ink-faint); margin-bottom:0.5rem;
+  }
+  .import-drop p{font-size:0.82rem; color:var(--ink-dim); line-height:1.5;}
+  .import-drop .sub{font-family:var(--mono); font-size:0.68rem; color:var(--ink-faint); margin-top:0.4rem;}
+  .import-steps{
+    font-family:var(--mono); font-size:0.68rem; color:var(--ink-faint);
+    line-height:1.7; margin-top:1rem; padding-top:1rem; border-top:1px solid var(--bg-line);
+  }
+  .import-steps b{color:var(--ink-dim);}
+
+  .import-summary{
+    display:flex; gap:0.5rem; flex-wrap:wrap; margin:1rem 0;
+  }
+  .import-stat{
+    font-family:var(--mono); font-size:0.72rem; padding:0.4rem 0.65rem;
+    background:var(--bg); border:1px solid var(--bg-line); border-radius:var(--radius);
+    color:var(--ink-dim);
+  }
+  .import-stat b{color:var(--ink);}
+
+  .preview-table{width:100%; border-collapse:collapse; font-size:0.78rem;}
+  .preview-table th{
+    text-align:left; font-family:var(--mono); font-size:0.62rem; letter-spacing:0.05em;
+    text-transform:uppercase; color:var(--ink-faint); padding:0.4rem 0.5rem;
+    border-bottom:1px solid var(--bg-line); position:sticky; top:0; background:var(--bg-raised);
+  }
+  .preview-table td{
+    padding:0.5rem; border-bottom:1px solid var(--bg-line); vertical-align:middle;
+  }
+  .preview-table tr.skip-row{opacity:0.4;}
+  .preview-table tr.unmatched-row{background:rgba(255,107,74,0.06);}
+  .preview-scroll{max-height:340px; overflow-y:auto; border:1px solid var(--bg-line); border-radius:var(--radius);}
+  .row-job-select{width:100%; font-size:0.75rem; padding:0.35rem 0.4rem;}
+  .row-check{width:16px; height:16px; accent-color:var(--signal); cursor:pointer;}
+  .row-amt{font-family:var(--mono); color:var(--signal); font-weight:600; white-space:nowrap;}
+  .dupe-badge{
+    font-family:var(--mono); font-size:0.6rem; color:var(--ink-faint);
+    border:1px solid var(--bg-line); border-radius:var(--radius); padding:0.05rem 0.3rem;
+    text-transform:uppercase;
+  }
+
+  @media (max-width:420px){
+    .summary-strip{grid-template-columns:1fr 1fr;}
+    .summary-cell:last-child{grid-column:1 / -1;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="mark">$</span>
+    <span class="name">ledger</span>
+    <span class="tag">// local wage tracker</span>
+  </div>
+  <div class="header-actions">
+    <button class="icon-btn" id="settingsBtn" title="Jobs & rates">⚙</button>
+  </div>
+</header>
+
+<main>
+
+  <section class="add-panel">
+    <div class="add-label">Log hours</div>
+
+    <div class="config-row">
+      <div class="field">
+        <label>Job</label>
+        <select id="jobSelect"></select>
+      </div>
+      <div class="field">
+        <label>Date</label>
+        <input type="date" id="entryDate">
+      </div>
+    </div>
+    <div class="config-row">
+      <div class="field">
+        <label>Hours</label>
+        <input type="number" id="entryHours" step="0.25" min="0" placeholder="e.g. 7.5">
+      </div>
+      <div class="field">
+        <label>Note (optional)</label>
+        <input type="text" id="entryNote" placeholder="e.g. morning shift">
+      </div>
+    </div>
+
+    <div class="rate-preview" id="ratePreview">Pick a job and date to see the rate.</div>
+
+    <button class="btn btn-start btn-full" id="addEntryBtn">+ Add to ledger</button>
+  </section>
+
+  <div class="summary-strip">
+    <div class="summary-cell">
+      <div class="k">This week</div>
+      <div class="v signal" id="sumWeek">$0.00</div>
+      <div class="sub" id="sumWeekHrs">0.0 hrs</div>
+    </div>
+    <div class="summary-cell">
+      <div class="k">This month</div>
+      <div class="v signal" id="sumMonth">$0.00</div>
+      <div class="sub" id="sumMonthHrs">0.0 hrs</div>
+    </div>
+    <div class="summary-cell">
+      <div class="k">All time</div>
+      <div class="v" id="sumAll">$0.00</div>
+      <div class="sub" id="sumAllHrs">0.0 hrs</div>
+    </div>
+  </div>
+  <div class="job-breakdown" id="jobBreakdown"></div>
+
+  <div class="range-tabs">
+    <button class="range-tab active" data-range="week">Week</button>
+    <button class="range-tab" data-range="month">Month</button>
+    <button class="range-tab" data-range="all">All time</button>
+  </div>
+
+  <div class="ledger" id="ledger"></div>
+
+</main>
+
+<footer>
+  <div class="note">Everything lives in this browser's localStorage. Nothing is sent anywhere. Clearing site data erases it — export first if you care.</div>
+  <div class="footer-btns">
+    <button class="btn btn-ghost" id="importCalBtn">Import calendar</button>
+    <button class="btn btn-ghost" id="exportBtn">Export JSON</button>
+    <button class="btn btn-ghost" id="importBtn">Import JSON</button>
+    <input type="file" id="importFile" accept="application/json" style="display:none;">
+  </div>
+</footer>
+
+<div class="modal-backdrop" id="settingsModal">
+  <div class="modal">
+    <h2>Jobs & rates <button class="icon-btn" id="closeSettings">✕</button></h2>
+    <div id="jobList"></div>
+    <button class="btn btn-ghost" id="addJobBtn" style="width:100%; margin-top:0.4rem;">+ Add job</button>
+    <div class="match-hint">Calendar import matches an event's title against these keywords (not case-sensitive) to decide which job it belongs to.</div>
+  </div>
+</div>
+
+<!-- IMPORT MODAL -->
+<div class="modal-backdrop" id="importModal">
+  <div class="modal" style="max-width:720px;">
+    <h2>Import from calendar <button class="icon-btn" id="closeImport">✕</button></h2>
+
+    <div id="importStep1">
+      <div class="import-drop" id="importDrop">
+        <div class="glyph">↑ .ics</div>
+        <p>Drop your calendar export here, or tap to choose a file.</p>
+        <div class="sub">Only events matching a job's keyword will be found — everything else is ignored.</div>
+      </div>
+      <input type="file" id="importIcsFile" accept=".ics,text/calendar" style="display:none;">
+      <div class="import-steps">
+        <b>Getting an .ics file —</b><br>
+        Google Calendar: Settings → click your calendar under "Settings for my calendars" → Export.<br>
+        Apple Calendar: File → Export → Export.<br>
+        Outlook: File → Save Calendar / Export Calendar.<br>
+        Export just the "Work" calendar if you can, to keep the file small.
+      </div>
+    </div>
+
+    <div id="importStep2" style="display:none;">
+      <div class="import-summary" id="importSummary"></div>
+      <div class="preview-scroll">
+        <table class="preview-table">
+          <thead>
+            <tr>
+              <th style="width:28px;"></th>
+              <th>Date</th>
+              <th>Event</th>
+              <th>Job</th>
+              <th>Hrs</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody id="previewBody"></tbody>
+        </table>
+      </div>
+      <button class="btn btn-start btn-full" id="confirmImportBtn">Add selected to ledger</button>
+      <button class="btn btn-ghost btn-full" id="backImportBtn" style="margin-top:0.5rem;">← Choose a different file</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const STORAGE_KEY = 'ledger_v2_state';
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => document.querySelectorAll(sel);
+  const JOB_COLORS = 5;
+
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+  function migrateFromV1(){
+    try{
+      const raw = localStorage.getItem('ledger_v1_state');
+      if(!raw) return null;
+      const old = JSON.parse(raw);
+      if(!old || !Array.isArray(old.rates)) return null;
+      const jobs = old.rates.map(r => ({ id: r.id, name: r.name, weekday: r.amount, sat: r.amount, sun: r.amount }));
+      const entries = (old.entries || []).map(e => ({
+        id: e.id, jobId: e.rateId, date: e.date, hours: e.hours,
+        amount: e.amount, note: '', createdAt: e.createdAt || Date.now()
+      }));
+      return { jobs, entries };
+    }catch(err){ return null; }
+  }
+
+  function defaultState(){
+    const migrated = migrateFromV1();
+    if(migrated && migrated.jobs.length){
+      return { jobs: migrated.jobs, activeJobId: migrated.jobs[0].id, entries: migrated.entries };
+    }
+    const jobId = uid();
+    return { jobs: [{ id: jobId, name: 'Job 1', weekday: 25, sat: 25, sun: 25 }], activeJobId: jobId, entries: [] };
+  }
+
+  function loadState(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw) return JSON.parse(raw);
+    }catch(e){ console.error('Failed to load state', e); }
+    return defaultState();
+  }
+
+  function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+  let state = loadState();
+  if(!state.jobs || state.jobs.length === 0){
+    const jobId = uid();
+    state.jobs = [{ id: jobId, name: 'Job 1', weekday: 25, sat: 25, sun: 25 }];
+  }
+  state.jobs.forEach(j => {
+    if(j.sat === undefined) j.sat = j.weekday;
+    if(j.sun === undefined) j.sun = j.weekday;
+  });
+  if(!state.activeJobId || !state.jobs.find(j => j.id === state.activeJobId)){
+    state.activeJobId = state.jobs[0].id;
+  }
+
+  function money(n){
+    const v = Number(n) || 0;
+    return '$' + v.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+  function startOfWeek(d){
+    const date = new Date(d);
+    const day = date.getDay();
+    const diff = (day === 0 ? -6 : 1) - day;
+    date.setHours(0,0,0,0);
+    date.setDate(date.getDate() + diff);
+    return date;
+  }
+  function startOfMonth(d){
+    const date = new Date(d);
+    date.setDate(1); date.setHours(0,0,0,0);
+    return date;
+  }
+  function getJob(id){ return state.jobs.find(j => j.id === id) || state.jobs[0]; }
+  function jobColorIndex(jobId){
+    const idx = state.jobs.findIndex(j => j.id === jobId);
+    return ((idx < 0 ? 0 : idx) % JOB_COLORS);
+  }
+  function dayKind(dateStr){
+    const d = new Date(dateStr + 'T00:00:00');
+    const dow = d.getDay();
+    if(dow === 0) return 'sun';
+    if(dow === 6) return 'sat';
+    return 'weekday';
+  }
+  function dayKindLabel(kind){
+    return kind === 'sun' ? 'Sunday' : kind === 'sat' ? 'Saturday' : 'Weekday';
+  }
+  function rateForJobOnDate(job, dateStr){ return job[dayKind(dateStr)]; }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function fmtDateShort(dateStr){
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+  }
+
+  function renderJobSelect(){
+    const opts = state.jobs.map(j => `<option value="${j.id}">${escapeHtml(j.name)}</option>`).join('');
+    $('#jobSelect').innerHTML = opts;
+    $('#jobSelect').value = state.activeJobId;
+  }
+
+  function renderRatePreview(){
+    const jobId = $('#jobSelect').value;
+    const job = getJob(jobId);
+    const dateStr = $('#entryDate').value;
+    if(!job || !dateStr){
+      $('#ratePreview').innerHTML = 'Pick a job and date to see the rate.';
+      return;
+    }
+    const kind = dayKind(dateStr);
+    const rate = rateForJobOnDate(job, dateStr);
+    const hours = parseFloat($('#entryHours').value) || 0;
+    const est = hours * rate;
+    $('#ratePreview').innerHTML =
+      `<b>${money(rate)}/hr</b> at ${escapeHtml(job.name)}<span class="day-tag">${dayKindLabel(kind)}</span>` +
+      (hours > 0 ? ` — est. <b>${money(est)}</b> for ${hours} hrs` : '');
+  }
+
+  function addEntry(){
+    const jobId = $('#jobSelect').value;
+    const job = getJob(jobId);
+    const dateStr = $('#entryDate').value || new Date().toISOString().slice(0,10);
+    const hours = parseFloat($('#entryHours').value) || 0;
+    const note = $('#entryNote').value.trim();
+
+    if(!job || hours <= 0){
+      $('#entryHours').focus();
+      return;
+    }
+    const rate = rateForJobOnDate(job, dateStr);
+    const amount = Math.round(hours * rate * 100) / 100;
+
+    state.entries.push({
+      id: uid(), jobId: job.id, date: dateStr, hours: hours,
+      amount: amount, note: note, createdAt: Date.now()
+    });
+    state.activeJobId = job.id;
+    saveState();
+
+    $('#entryHours').value = '';
+    $('#entryNote').value = '';
+    renderAll();
+  }
+
+  function deleteEntry(id){
+    state.entries = state.entries.filter(e => e.id !== id);
+    saveState();
+    renderAll();
+  }
+
+  function sumEntries(entries){
+    return entries.reduce((acc, e) => { acc.amount += e.amount; acc.hours += e.hours; return acc; }, { amount: 0, hours: 0 });
+  }
+
+  let activeRange = 'week';
+
+  function currentRangeEntries(){
+    const now = new Date();
+    let cutoff = null;
+    if(activeRange === 'week') cutoff = startOfWeek(now);
+    if(activeRange === 'month') cutoff = startOfMonth(now);
+    let entries = [...state.entries];
+    if(cutoff) entries = entries.filter(e => new Date(e.date + 'T00:00:00') >= cutoff);
+    return entries;
+  }
+
+  function renderSummary(){
+    const now = new Date();
+    const wStart = startOfWeek(now);
+    const mStart = startOfMonth(now);
+
+    const weekEntries = state.entries.filter(e => new Date(e.date + 'T00:00:00') >= wStart);
+    const monthEntries = state.entries.filter(e => new Date(e.date + 'T00:00:00') >= mStart);
+    const allEntries = state.entries;
+
+    const w = sumEntries(weekEntries);
+    const m = sumEntries(monthEntries);
+    const a = sumEntries(allEntries);
+
+    $('#sumWeek').textContent = money(w.amount);
+    $('#sumWeekHrs').textContent = w.hours.toFixed(1) + ' hrs';
+    $('#sumMonth').textContent = money(m.amount);
+    $('#sumMonthHrs').textContent = m.hours.toFixed(1) + ' hrs';
+    $('#sumAll').textContent = money(a.amount);
+    $('#sumAllHrs').textContent = a.hours.toFixed(1) + ' hrs';
+
+    renderJobBreakdown();
+  }
+
+  function renderJobBreakdown(){
+    const entries = currentRangeEntries();
+    const byJob = {};
+    entries.forEach(e => { byJob[e.jobId] = (byJob[e.jobId] || 0) + e.amount; });
+    const jobIds = Object.keys(byJob);
+    if(jobIds.length === 0){ $('#jobBreakdown').innerHTML = ''; return; }
+    let html = '';
+    state.jobs.forEach(job => {
+      if(byJob[job.id] === undefined) return;
+      const colorIdx = jobColorIndex(job.id);
+      html += `<div class="job-chip">
+        <span class="swatch job-bg${colorIdx}"></span>
+        <span>${escapeHtml(job.name)}</span>
+        <span class="amt">${money(byJob[job.id])}</span>
+      </div>`;
+    });
+    $('#jobBreakdown').innerHTML = html;
+  }
+
+  function renderLedger(){
+    let entries = currentRangeEntries();
+    entries.sort((a,b) => (b.date + b.createdAt).localeCompare(a.date + a.createdAt));
+
+    const container = $('#ledger');
+    if(entries.length === 0){
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="glyph">·&nbsp;·&nbsp;·</div>
+          <p>No hours logged for this range yet. Add a shift above.</p>
+        </div>`;
+      return;
+    }
+
+    const groups = {};
+    entries.forEach(e => { (groups[e.date] = groups[e.date] || []).push(e); });
+
+    let html = '';
+    Object.keys(groups).sort().reverse().forEach(date => {
+      const dayEntries = groups[date];
+      const dayTotal = sumEntries(dayEntries).amount;
+      const kind = dayKind(date);
+      html += `<div class="ledger-group">
+        <div class="ledger-group-label"><span>${fmtDateShort(date)} · ${dayKindLabel(kind)}</span><span>${money(dayTotal)}</span></div>`;
+      dayEntries.forEach(e => {
+        const job = getJob(e.jobId);
+        const colorIdx = jobColorIndex(e.jobId);
+        const jobName = job ? job.name : 'Unknown job';
+        html += `
+          <div class="entry job-c${colorIdx}" style="border-left-color:currentColor;">
+            <div class="entry-main">
+              <div class="entry-label">${escapeHtml(jobName)}${e.note ? ' — ' + escapeHtml(e.note) : ''}</div>
+              <div class="entry-meta">${e.hours.toFixed(2)} hrs @ ${money(job ? rateForJobOnDate(job, e.date) : 0)}/hr</div>
+            </div>
+            <div class="entry-amount">${money(e.amount)}</div>
+            <button class="entry-del" data-del="${e.id}" title="Delete entry">✕</button>
+          </div>`;
+      });
+      html += `</div>`;
+    });
+    container.innerHTML = html;
+  }
+
+  function renderJobList(){
+    const html = state.jobs.map((j, idx) => {
+      const colorIdx = idx % JOB_COLORS;
+      return `
+      <div class="job-card" data-job-id="${j.id}">
+        <div class="job-card-head">
+          <span class="swatch job-bg${colorIdx}"></span>
+          <input type="text" class="job-name" value="${escapeHtml(j.name)}" placeholder="Job name">
+          <button class="job-del" ${state.jobs.length <= 1 ? 'disabled' : ''} title="Remove job">✕</button>
+        </div>
+        <div class="day-rate-grid">
+          <div class="field"><label>Weekday $/hr</label><input type="number" class="rate-weekday" step="0.01" min="0" value="${j.weekday}"></div>
+          <div class="field"><label>Sat $/hr</label><input type="number" class="rate-sat" step="0.01" min="0" value="${j.sat}"></div>
+          <div class="field"><label>Sun $/hr</label><input type="number" class="rate-sun" step="0.01" min="0" value="${j.sun}"></div>
+        </div>
+        <div class="match-field">
+          <label>Calendar match keyword</label>
+          <input type="text" class="job-match" value="${escapeHtml(j.match !== undefined ? j.match : j.name)}" placeholder="e.g. CareWork">
+        </div>
+      </div>`;
+    }).join('');
+    $('#jobList').innerHTML = html;
+  }
+
+  function saveJobsFromModal(){
+    const cards = $$('.job-card');
+    const newJobs = [];
+    cards.forEach(card => {
+      const id = card.getAttribute('data-job-id');
+      const name = card.querySelector('.job-name').value.trim() || 'Untitled job';
+      const weekday = parseFloat(card.querySelector('.rate-weekday').value) || 0;
+      const sat = parseFloat(card.querySelector('.rate-sat').value) || 0;
+      const sun = parseFloat(card.querySelector('.rate-sun').value) || 0;
+      const match = card.querySelector('.job-match').value.trim() || name;
+      newJobs.push({ id, name, weekday, sat, sun, match });
+    });
+    if(newJobs.length){
+      state.jobs = newJobs;
+      if(!state.jobs.find(j => j.id === state.activeJobId)){
+        state.activeJobId = state.jobs[0].id;
+      }
+      saveState();
+      renderAll();
+    }
+  }
+
+  // ================= CALENDAR IMPORT =================
+
+  // --- minimal ICS parser: handles VEVENT blocks, folded lines, DTSTART/DTEND
+  //     with either local (YYYYMMDDTHHMMSS) or UTC (...Z) forms, and all-day (DATE) events.
+  function parseICS(text){
+    // unfold lines: a continuation line starts with a space or tab
+    const rawLines = text.split(/\r\n|\n|\r/);
+    const lines = [];
+    for(const line of rawLines){
+      if((line.startsWith(' ') || line.startsWith('\t')) && lines.length){
+        lines[lines.length - 1] += line.slice(1);
+      } else {
+        lines.push(line);
+      }
+    }
+
+    const events = [];
+    let cur = null;
+    for(const line of lines){
+      if(line === 'BEGIN:VEVENT'){ cur = {}; continue; }
+      if(line === 'END:VEVENT'){ if(cur) events.push(cur); cur = null; continue; }
+      if(!cur) continue;
+
+      const idx = line.indexOf(':');
+      if(idx === -1) continue;
+      const left = line.slice(0, idx);
+      const value = line.slice(idx + 1);
+      const key = left.split(';')[0].toUpperCase();
+
+      if(key === 'SUMMARY') cur.summary = unescapeICSText(value);
+      else if(key === 'DTSTART') cur.dtstart = parseICSDate(left, value);
+      else if(key === 'DTEND') cur.dtend = parseICSDate(left, value);
+      else if(key === 'UID') cur.uid = value;
+      else if(key === 'RRULE') cur.rrule = value; // recurring events: imported as their single DTSTART occurrence only
+      else if(key === 'STATUS') cur.status = value;
+    }
+    return events;
+  }
+
+  function unescapeICSText(s){
+    return s.replace(/\\n/gi, ' ').replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\\\/g, '\\');
+  }
+
+  function parseICSDate(paramStr, value){
+    const isDateOnly = /VALUE=DATE(?!TIME)/i.test(paramStr) || /^\d{8}$/.test(value);
+    if(isDateOnly){
+      const y = value.slice(0,4), mo = value.slice(4,6), d = value.slice(6,8);
+      return { allDay: true, date: `${y}-${mo}-${d}`, ms: new Date(`${y}-${mo}-${d}T00:00:00`).getTime() };
+    }
+    // YYYYMMDDTHHMMSS or YYYYMMDDTHHMMSSZ
+    const m = value.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z)?$/);
+    if(!m) return null;
+    const [, y, mo, d, h, mi, s, z] = m;
+    let dateObj;
+    if(z){
+      dateObj = new Date(Date.UTC(+y, +mo - 1, +d, +h, +mi, +s));
+    } else {
+      dateObj = new Date(+y, +mo - 1, +d, +h, +mi, +s); // treated as local time (device timezone)
+    }
+    return { allDay: false, ms: dateObj.getTime(), dateObj };
+  }
+
+  function toLocalDateStr(ms){
+    const d = new Date(ms);
+    const y = d.getFullYear();
+    const mo = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${mo}-${day}`;
+  }
+
+  function normalizeForMatch(s){
+    // lowercase, strip everything except letters/numbers, so "Luxury Souq", "LuxurySouq",
+    // "luxury-souq" etc all normalize the same way and match against each other.
+    return (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  }
+
+  function matchJobForSummary(summary){
+    if(!summary) return null;
+    const normSummary = normalizeForMatch(summary);
+    for(const job of state.jobs){
+      const rawKw = (job.match !== undefined && job.match.trim() !== '') ? job.match : job.name;
+      const normKw = normalizeForMatch(rawKw);
+      if(normKw && normSummary.includes(normKw)) return job;
+    }
+    return null;
+  }
+
+  let importCandidates = []; // built after parsing, rendered into preview table
+
+  function buildImportCandidates(events){
+    const existingKeys = new Set(state.entries.map(e => e.importKey).filter(Boolean));
+    const out = [];
+    for(const ev of events){
+      if(!ev.dtstart || ev.status === 'CANCELLED') continue;
+      if(ev.dtstart.allDay) continue; // all-day events carry no hours info — skip from hour calc
+
+      const job = matchJobForSummary(ev.summary || '');
+      const dateStr = toLocalDateStr(ev.dtstart.ms);
+      let hours = 0;
+      if(ev.dtend && !ev.dtend.allDay){
+        hours = Math.round(((ev.dtend.ms - ev.dtstart.ms) / 3600000) * 100) / 100;
+      }
+      const importKey = (ev.uid || '') + '|' + ev.dtstart.ms;
+      const isDupe = existingKeys.has(importKey);
+
+      out.push({
+        importKey,
+        summary: ev.summary || '(untitled event)',
+        date: dateStr,
+        hours: hours > 0 ? hours : 0,
+        jobId: job ? job.id : '',
+        isDupe,
+        selected: !!job && hours > 0 && !isDupe
+      });
+    }
+    // newest first
+    out.sort((a,b) => b.date.localeCompare(a.date));
+    return out;
+  }
+
+  function renderImportPreview(){
+    const matched = importCandidates.filter(c => c.jobId && !c.isDupe).length;
+    const unmatched = importCandidates.filter(c => !c.jobId).length;
+    const dupes = importCandidates.filter(c => c.isDupe).length;
+    $('#importSummary').innerHTML = `
+      <span class="import-stat"><b>${importCandidates.length}</b> events found</span>
+      <span class="import-stat"><b>${matched}</b> matched to a job</span>
+      ${unmatched ? `<span class="import-stat"><b>${unmatched}</b> unmatched — set keyword in Jobs & rates</span>` : ''}
+      ${dupes ? `<span class="import-stat"><b>${dupes}</b> already imported</span>` : ''}
+    `;
+
+    const jobOptions = state.jobs.map(j => `<option value="${j.id}">${escapeHtml(j.name)}</option>`).join('');
+
+    const rows = importCandidates.map((c, i) => {
+      const job = c.jobId ? getJob(c.jobId) : null;
+      const rate = job ? rateForJobOnDate(job, c.date) : 0;
+      const amount = job ? Math.round(c.hours * rate * 100) / 100 : 0;
+      const rowClass = c.isDupe ? 'skip-row' : (!c.jobId ? 'unmatched-row' : '');
+      return `
+        <tr class="${rowClass}" data-idx="${i}">
+          <td><input type="checkbox" class="row-check" ${c.selected ? 'checked' : ''} ${c.isDupe ? 'disabled' : ''}></td>
+          <td>${fmtDateShort(c.date)}</td>
+          <td>${escapeHtml(c.summary)}${c.isDupe ? ' <span class="dupe-badge">already added</span>' : ''}</td>
+          <td>
+            <select class="row-job-select" ${c.isDupe ? 'disabled' : ''}>
+              <option value="">— unmatched —</option>
+              ${jobOptions}
+            </select>
+          </td>
+          <td>${c.hours.toFixed(2)}</td>
+          <td class="row-amt">${job ? money(amount) : '—'}</td>
+        </tr>`;
+    }).join('');
+    $('#previewBody').innerHTML = rows;
+
+    // set select values after insertion (avoids HTML-escaping issues on value attr)
+    $$('#previewBody tr').forEach(tr => {
+      const idx = parseInt(tr.getAttribute('data-idx'), 10);
+      const sel = tr.querySelector('.row-job-select');
+      if(sel) sel.value = importCandidates[idx].jobId || '';
+    });
+  }
+
+  function openImportModal(){
+    $('#importStep1').style.display = '';
+    $('#importStep2').style.display = 'none';
+    $('#importModal').classList.add('open');
+  }
+  function closeImportModal(){
+    $('#importModal').classList.remove('open');
+    $('#importIcsFile').value = '';
+  }
+
+  function handleICSFile(file){
+    const reader = new FileReader();
+    reader.onload = () => {
+      let events;
+      try{
+        events = parseICS(reader.result);
+      }catch(err){
+        alert('Could not parse that file — make sure it\'s a valid .ics calendar export.');
+        return;
+      }
+      if(!events.length){
+        alert('No events found in that file.');
+        return;
+      }
+      importCandidates = buildImportCandidates(events);
+      if(!importCandidates.length){
+        alert('That file had events, but none had usable start/end times to calculate hours from.');
+        return;
+      }
+      renderImportPreview();
+      $('#importStep1').style.display = 'none';
+      $('#importStep2').style.display = '';
+    };
+    reader.onerror = () => alert('Could not read that file.');
+    reader.readAsText(file);
+  }
+
+  function confirmImport(){
+    const rows = $$('#previewBody tr');
+    let added = 0;
+    rows.forEach(tr => {
+      const idx = parseInt(tr.getAttribute('data-idx'), 10);
+      const cand = importCandidates[idx];
+      const checked = tr.querySelector('.row-check').checked;
+      const jobId = tr.querySelector('.row-job-select').value;
+      if(!checked || !jobId || cand.isDupe || cand.hours <= 0) return;
+
+      const job = getJob(jobId);
+      const rate = rateForJobOnDate(job, cand.date);
+      const amount = Math.round(cand.hours * rate * 100) / 100;
+
+      state.entries.push({
+        id: uid(),
+        jobId: job.id,
+        date: cand.date,
+        hours: cand.hours,
+        amount: amount,
+        note: cand.summary,
+        createdAt: Date.now(),
+        importKey: cand.importKey
+      });
+      added++;
+    });
+    saveState();
+    closeImportModal();
+    renderAll();
+    if(added){
+      alert(`Added ${added} shift${added === 1 ? '' : 's'} to the ledger.`);
+    }
+  }
+
+  function renderAll(){
+    renderJobSelect();
+    renderRatePreview();
+    renderSummary();
+    renderLedger();
+  }
+
+  $('#jobSelect').addEventListener('change', () => {
+    state.activeJobId = $('#jobSelect').value;
+    saveState();
+    renderRatePreview();
+  });
+  $('#entryDate').addEventListener('change', renderRatePreview);
+  $('#entryHours').addEventListener('input', renderRatePreview);
+  $('#addEntryBtn').addEventListener('click', addEntry);
+
+  $$('.range-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      $$('.range-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      activeRange = tab.getAttribute('data-range');
+      renderLedger();
+      renderJobBreakdown();
+    });
+  });
+
+  $('#ledger').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-del]');
+    if(btn) deleteEntry(btn.getAttribute('data-del'));
+  });
+
+  $('#settingsBtn').addEventListener('click', () => {
+    renderJobList();
+    $('#settingsModal').classList.add('open');
+  });
+  $('#closeSettings').addEventListener('click', () => {
+    saveJobsFromModal();
+    $('#settingsModal').classList.remove('open');
+  });
+  $('#settingsModal').addEventListener('click', (e) => {
+    if(e.target.id === 'settingsModal'){
+      saveJobsFromModal();
+      $('#settingsModal').classList.remove('open');
+    }
+  });
+  $('#addJobBtn').addEventListener('click', () => {
+    state.jobs.push({ id: uid(), name: 'New job', weekday: 25, sat: 25, sun: 25 });
+    saveState();
+    renderJobList();
+  });
+  $('#jobList').addEventListener('click', (e) => {
+    if(e.target.classList.contains('job-del')){
+      const card = e.target.closest('.job-card');
+      const id = card.getAttribute('data-job-id');
+      if(state.jobs.length > 1){
+        state.jobs = state.jobs.filter(j => j.id !== id);
+        saveState();
+        renderJobList();
+      }
+    }
+  });
+
+  $('#exportBtn').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ledger-export-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+  $('#importBtn').addEventListener('click', () => $('#importFile').click());
+  $('#importFile').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try{
+        const imported = JSON.parse(reader.result);
+        if(imported && Array.isArray(imported.entries) && Array.isArray(imported.jobs)){
+          state = imported;
+          state.jobs.forEach(j => {
+            if(j.sat === undefined) j.sat = j.weekday;
+            if(j.sun === undefined) j.sun = j.weekday;
+          });
+          if(!state.activeJobId || !state.jobs.find(j => j.id === state.activeJobId)){
+            state.activeJobId = state.jobs[0] ? state.jobs[0].id : null;
+          }
+          saveState();
+          renderAll();
+        } else {
+          alert('That file doesn\'t look like a ledger export.');
+        }
+      }catch(err){
+        alert('Could not read that file.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  // --- import modal wiring
+  $('#importCalBtn').addEventListener('click', openImportModal);
+  $('#closeImport').addEventListener('click', closeImportModal);
+  $('#importModal').addEventListener('click', (e) => {
+    if(e.target.id === 'importModal') closeImportModal();
+  });
+  $('#importDrop').addEventListener('click', () => $('#importIcsFile').click());
+  $('#importIcsFile').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if(file) handleICSFile(file);
+  });
+  $('#importDrop').addEventListener('dragover', (e) => {
+    e.preventDefault();
+    $('#importDrop').classList.add('dragover');
+  });
+  $('#importDrop').addEventListener('dragleave', () => {
+    $('#importDrop').classList.remove('dragover');
+  });
+  $('#importDrop').addEventListener('drop', (e) => {
+    e.preventDefault();
+    $('#importDrop').classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if(file) handleICSFile(file);
+  });
+  $('#backImportBtn').addEventListener('click', () => {
+    $('#importStep1').style.display = '';
+    $('#importStep2').style.display = 'none';
+    $('#importIcsFile').value = '';
+  });
+  $('#previewBody').addEventListener('change', (e) => {
+    if(e.target.classList.contains('row-job-select')){
+      const tr = e.target.closest('tr');
+      const idx = parseInt(tr.getAttribute('data-idx'), 10);
+      importCandidates[idx].jobId = e.target.value;
+      renderImportPreview();
+    }
+  });
+  $('#confirmImportBtn').addEventListener('click', confirmImport);
+
+  $('#entryDate').value = new Date().toISOString().slice(0,10);
+
+  renderAll();
+})();
+</script>
+</body>
+</html>
